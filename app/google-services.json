@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "268122013352",
+    "firebase_url": "https://borrar5-24b34.firebaseio.com",
+    "project_id": "borrar5-24b34",
+    "storage_bucket": "borrar5-24b34.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:268122013352:android:aa2683c1e9c51ff8",
+        "android_client_info": {
+          "package_name": "com.davidhm.pqtm.borrar5"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "268122013352-g5qr1oq9cnv930ug3ma96j0f3o7eajis.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlsoLDTEQT6QjhFhs_zjiYdq_3yHJd_rE"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -9,12 +9,23 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.davidhm.pqtm.borrar5.dummy.DummyContent;
+
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.List;
 
@@ -34,10 +45,50 @@ public class ItemListActivity extends AppCompatActivity {
      */
     private boolean mTwoPane;
 
+    // Declara instancias de Firebase
+    private FirebaseAuth mAuth;
+    private FirebaseDatabase database;
+
+    // Valores para autenticación en Firebase
+    private static final String mEmail = "davidhm0@yahoo.es";
+    private static final String mPassword = "pqtm-davidhm";
+
+    // Etiqueta para logs
+    private static final String TAG = "BookListactivity";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_item_list);
+
+        // Inicializa instancias de Firebase
+        mAuth = FirebaseAuth.getInstance();
+        database = FirebaseDatabase.getInstance();
+
+        // Comprueba si el usuario ya está autenticado en Firebase
+        if (mAuth.getCurrentUser() == null ) {
+            // No hay mingún usuario autenticado -> hace login
+            mAuth.signInWithEmailAndPassword(mEmail, mPassword)
+                    .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // La autenticación en Firebase es correcta -> pide la lista de libros al servidor
+                            Log.d(TAG, "signInWithEmail:usuario autenticado correctamente");
+                            getFirebaseBookList();
+                        } else {
+                            // La autenticación falla -> muestra un mensaje al usuario.
+                            Log.w(TAG, "signInWithEmail:error de autenticación", task.getException());
+                            Toast.makeText(ItemListActivity.this, "Error de autenticación en Firebase.",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+            });
+        } else {
+            // El usuario ya está autenticado -> solo pide la lista de libros
+            Log.d(TAG, "Usuario ya autenticado en Firebase");
+            getFirebaseBookList();
+        }
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -63,6 +114,29 @@ public class ItemListActivity extends AppCompatActivity {
         View recyclerView = findViewById(R.id.item_list);
         assert recyclerView != null;
         setupRecyclerView((RecyclerView) recyclerView);
+    }
+
+    /**
+     * Pide la lista de libros al servidor Firebase, y asigna un listener a
+     * la referencia obtenida. El método onDataChange es invocado por primera
+     * vez cuando se asigna el listener, y cada vez que hay modificaciones en
+     * los datos a los que apunta la referencia.
+     */
+    private void getFirebaseBookList() {
+        database.getReference("books").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // Recibe modificaciones en la lista de libros del servidor
+                // Acción a implementar en el ejercicio 3.
+                Log.d(TAG, "ValueEventListener:onDataChange");
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                // Error en el acceso a la base de datos Firebase.
+                Log.w(TAG, "ValueEventListener:onCancelled", databaseError.toException());
+            }
+        });
     }
 
     private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
