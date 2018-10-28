@@ -1,6 +1,15 @@
 package com.davidhm.pqtm.borrar5.model;
 
+import android.util.Log;
+
+import com.orm.SugarRecord;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +21,9 @@ import java.util.Map;
  * TODO: Replace all uses of this class before publishing your app.
  */
 public class BookContent {
+
+    // Etiqueta para logs
+    private static final String TAG = "miLog";
 
     /**
      * An array of sample (dummy) items.
@@ -34,11 +46,17 @@ public class BookContent {
 
     private static void addItem(BookItem item) {
         ITEMS.add(item);
-        ITEM_MAP.put(item.id, item);
+        ITEM_MAP.put(String.valueOf(item.getIdentificador()), item);
     }
 
     private static BookItem createDummyItem(int position) {
-        return new BookItem(String.valueOf(position), "Item " + position, makeDetails(position));
+        return new BookItem(position, "Item " + position, "Author" + position,
+                makeDate(position), makeDetails(position), "URL_book_" + position);
+    }
+
+    private static Date makeDate(int position) {
+        Calendar calendar = new GregorianCalendar(2016, 6, 29 + position);
+        return calendar.getTime();
     }
 
     private static String makeDetails(int position) {
@@ -50,15 +68,110 @@ public class BookContent {
         return builder.toString();
     }
 
+    public static List<BookItem> getBooks(){
+        // ============ INICIO CODIGO A COMPLETAR ===============
+        return BookItem.listAll(BookItem.class);
+        // ============ FIN CODIGO A COMPLETAR ===============
+    }
+
+    public static boolean exists(BookItem bookItem) {
+        // ============ INICIO CODIGO A COMPLETAR ===============
+        if (bookItem == null) return false;
+        if (BookItem.find(BookItem.class, "title = ?", bookItem.getTitle()).isEmpty()) {
+            Log.d(TAG, "exists: devuelve false (libro \"" + bookItem.getTitle() + "\")");
+            return false;
+        } else {
+            Log.d(TAG, "exists: devuelve true (libro \"" + bookItem.getTitle() + "\")");
+            return true;
+        }
+        // ============ FIN CODIGO A COMPLETAR ===============
+    }
+
+    /**
+     * Clase que define la estructura de cada uno de los elementos a mostrar en el
+     * catálogo de libros.
+     */
+    public static class BookItem extends SugarRecord {
+
+        private int identificador;
+        private String title;
+        private String author;
+        private Date publicationDate;
+        private String description;
+        private String urlImage;
+
+        // Constructor por defecto, vacío
+        public BookItem() {
+
+        }
+
+        public BookItem(int identificador, String title, String author, Date publicationDate,
+                        String description, String urlImage) {
+            this.identificador = identificador;
+            this.title = title;
+            this.author = author;
+            this.publicationDate = publicationDate;
+            this.description = description;
+            this.urlImage = urlImage;
+        }
+
+        public int getIdentificador() {
+            return identificador;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getAuthor() {
+            return author;
+        }
+
+        public Date getPublicationDate() {
+            return publicationDate;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public String getUrlImage() {
+            return urlImage;
+        }
+
+        public void setIdentificador(int identificador) {
+            this.identificador = identificador;
+        }
+
+        /**
+         * Llamado al importar datos de Firebase.
+         * Lee el campo 'publicationDate' de la BBDD de Firebase, como cadena
+         * de texto con formato dd/MM/yyyy, y lo asgina al mismo campo de
+         * BookItem, en formato Date.
+         *
+         * @param publicationDate   fecha en formato dd/MM/yyyy
+         */
+        public void setPublicationDate(String publicationDate) {
+            try {
+                this.publicationDate = new SimpleDateFormat("dd/MM/yyyy").parse(publicationDate);
+                Log.d(TAG, "setPublicationDate:fecha de publicación establecida");
+            }
+            catch (ParseException ex)
+            {
+                Log.w(TAG, "setPublicationDate:formato de fecha incorrecto", ex);
+            }
+        }
+    }
+
     /**
      * A dummy item representing a piece of content.
      */
-    public static class BookItem {
+    public static class DummyItem {
         public final String id;
         public final String content;
         public final String details;
 
-        public BookItem(String id, String content, String details) {
+        public DummyItem(String id, String content, String details) {
             this.id = id;
             this.content = content;
             this.details = details;

@@ -25,6 +25,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.GenericTypeIndicator;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.List;
@@ -54,7 +55,7 @@ public class BookListActivity extends AppCompatActivity {
     private static final String mPassword = "pqtm-davidhm";
 
     // Etiqueta para logs
-    private static final String TAG = "BookListactivity";
+    private static final String TAG = "miLog";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,13 +68,13 @@ public class BookListActivity extends AppCompatActivity {
 
         // Comprueba si el usuario ya está autenticado en Firebase
         if (mAuth.getCurrentUser() == null ) {
-            // No hay mingún usuario autenticado -> hace login
+            // No hay mingún usuario autenticado -> intenta hacer login
             mAuth.signInWithEmailAndPassword(mEmail, mPassword)
                     .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
                         if (task.isSuccessful()) {
-                            // La autenticación en Firebase es correcta -> pide la lista de libros al servidor
+                            // Autenticación en Firebase correcta -> pide libros al servidor
                             Log.d(TAG, "signInWithEmail:usuario autenticado correctamente");
                             getFirebaseBookList();
                         } else {
@@ -126,17 +127,56 @@ public class BookListActivity extends AppCompatActivity {
         database.getReference("books").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                // Recibe modificaciones en la lista de libros del servidor
-                // Acción a implementar en el ejercicio 3.
-                Log.d(TAG, "ValueEventListener:onDataChange");
+                // Recibe modificaciones de la lista de libros de Firebase
+                // y actualiza la base de datos local.
+                Log.d(TAG, "ValueEventListener:onDataChange invocado");
+                updateLocalDatabase(dataSnapshot);
             }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 // Error en el acceso a la base de datos Firebase.
-                Log.w(TAG, "ValueEventListener:onCancelled", databaseError.toException());
+                Log.w(TAG, "ValueEventListener:onCancelled invocado", databaseError.toException());
             }
         });
+    }
+
+    /**
+     * Actualiza la base de datos local con la lista recibida de Firebase.
+     * Solo añade a la base de datos aquellos libros que no existían
+     * previamente.
+     *
+     * @param dataSnapshot la lista de libros de Firebase
+     */
+    private void updateLocalDatabase(DataSnapshot dataSnapshot) {
+        GenericTypeIndicator<List<BookContent.BookItem>> gtiBookList =
+                new GenericTypeIndicator<List<BookContent.BookItem>>() {};
+        //BookContent.BookItem.deleteAll(BookContent.BookItem.class);
+        Log.d(TAG, "Libros atualmente en la base de datos SugarORM:");
+        for (BookContent.BookItem book: BookContent.getBooks()) {
+            Log.d(TAG, "SugarID = " + book.getId()
+                    + "; identificador = " + book.getIdentificador()
+                    + "; title = " + book.getTitle()
+                    + "; author = " + book.getAuthor()
+                    + "; fecha de publicación = " + book.getPublicationDate()
+                    + "; urlImagen = " + book.getUrlImage());
+        }
+        /*Log.d(TAG, "updateLocalDatabase:número de hijos en nodo " + dataSnapshot.getKey() + " = " + dataSnapshot.getChildrenCount());
+        Log.d(TAG, "updateLocalDatabase:número de hijos en nodo " + dataSnapshot.getKey() + "/" + dataSnapshot.child("5").getKey() + " = " + dataSnapshot.child("5").getChildrenCount());
+        Log.d(TAG, "updateLocalDatabase:nodo " + dataSnapshot.getKey() + "/" + dataSnapshot.child("5").getKey() + "/" + dataSnapshot.child("5").child("url_image").getKey() + " = " + dataSnapshot.child("5").child("url_image").getValue());
+        BookContent.BookItem book = dataSnapshot.child("5").getValue(BookContent.BookItem.class);*/
+        for (BookContent.BookItem fbBook: dataSnapshot.getValue(gtiBookList)) {
+            if (!BookContent.exists(fbBook)) {
+                // Añade el nuevo libro a la base de datos local
+                fbBook.save();
+                // Asigna el id del nuevo registro al campo 'identificador'
+                fbBook.setIdentificador(fbBook.getId().intValue());
+                fbBook.update();
+                Log.d(TAG, "updateLocalDatabase:añadido a BD SugarId = " + fbBook.getId() +
+                        "; identificador = " + fbBook.getIdentificador() +
+                        "; title = " + fbBook.getTitle());
+            }
+        }
     }
 
     private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
@@ -155,7 +195,7 @@ public class BookListActivity extends AppCompatActivity {
                 BookContent.BookItem item = (BookContent.BookItem) view.getTag();
                 if (mTwoPane) {
                     Bundle arguments = new Bundle();
-                    arguments.putString(BookDetailFragment.ARG_ITEM_ID, item.id);
+                    arguments.putString(BookDetailFragment.ARG_ITEM_ID, String.valueOf(item.getIdentificador()));
                     BookDetailFragment fragment = new BookDetailFragment();
                     fragment.setArguments(arguments);
                     mParentActivity.getSupportFragmentManager().beginTransaction()
@@ -164,7 +204,7 @@ public class BookListActivity extends AppCompatActivity {
                 } else {
                     Context context = view.getContext();
                     Intent intent = new Intent(context, BookDetailActivity.class);
-                    intent.putExtra(BookDetailFragment.ARG_ITEM_ID, item.id);
+                    intent.putExtra(BookDetailFragment.ARG_ITEM_ID, String.valueOf(item.getIdentificador()));
 
                     context.startActivity(intent);
                 }
@@ -188,8 +228,8 @@ public class BookListActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(final ViewHolder holder, int position) {
-            holder.mIdView.setText(mValues.get(position).id);
-            holder.mContentView.setText(mValues.get(position).content);
+            holder.mIdView.setText(String.valueOf(mValues.get(position).getIdentificador()));
+            holder.mContentView.setText(mValues.get(position).getTitle());
 
             holder.itemView.setTag(mValues.get(position));
             holder.itemView.setOnClickListener(mOnClickListener);
