@@ -46,16 +46,19 @@ public class BookListActivity extends AppCompatActivity {
      */
     private boolean mTwoPane;
 
-    // Declara instancias de Firebase
+    // Contenedor de la lista de libros
+    private View recyclerView;
+
+    // Instancias de autenticación y base de datos de Firebase
     private FirebaseAuth mAuth;
     private FirebaseDatabase database;
 
-    // Valores para autenticación en Firebase
+    // Parámetros para autenticación en Firebase
     private static final String mEmail = "davidhm0@yahoo.es";
     private static final String mPassword = "pqtm-davidhm";
 
-    // Etiqueta para logs
-    private static final String TAG = "miLog";
+    // Etiqueta para Logs
+    private static final String TAG = "MyBooks";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,32 +69,8 @@ public class BookListActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         database = FirebaseDatabase.getInstance();
 
-        // Comprueba si el usuario ya está autenticado en Firebase
-        if (mAuth.getCurrentUser() == null ) {
-            // No hay mingún usuario autenticado -> intenta hacer login
-            mAuth.signInWithEmailAndPassword(mEmail, mPassword)
-                    .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        if (task.isSuccessful()) {
-                            // Autenticación en Firebase correcta -> pide libros al servidor
-                            Log.d(TAG, "signInWithEmail:usuario autenticado correctamente");
-                            getFirebaseBookList();
-                        } else {
-                            // La autenticación falla -> muestra un mensaje al usuario.
-                            Log.w(TAG, "signInWithEmail:error de autenticación", task.getException());
-                            Toast.makeText(BookListActivity.this, "Error de autenticación en Firebase.",
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                    }
-            });
-        } else {
-            // El usuario ya está autenticado -> solo pide la lista de libros
-            Log.d(TAG, "Usuario ya autenticado en Firebase");
-            getFirebaseBookList();
-        }
-
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+
         setSupportActionBar(toolbar);
         toolbar.setTitle(getTitle());
 
@@ -112,9 +91,50 @@ public class BookListActivity extends AppCompatActivity {
             mTwoPane = true;
         }
 
-        View recyclerView = findViewById(R.id.item_list);
+        recyclerView = findViewById(R.id.item_list);
         assert recyclerView != null;
-        setupRecyclerView((RecyclerView) recyclerView);
+
+        // Comprueba si el usuario ya está autenticado en Firebase
+        //mAuth.signOut();
+        //BookContent.BookItem.deleteAll(BookContent.BookItem.class);
+        if (mAuth.getCurrentUser() == null ) {
+            // No hay mingún usuario autenticado -> intenta hacer login
+            signIn(mEmail, mPassword);
+        } else {
+            // El usuario ya está autenticado -> pide libros al servidor
+            Log.d(TAG, "onCreate:usuario autenticado previamente");
+            getFirebaseBookList();
+        }
+    }
+
+    /**
+     * Intenta hacer login en el servidor Firebase.
+     * Si la autenticación tiene éxito, pide la lista de libros al servidor.
+     * Si falla, carga en el Adapter la lista de libros guardada en la base
+     * de datos local.
+     *
+     * @param email     email de autenticación en Firebase
+     * @param password  contraseña de autenticación en Firebase
+     */
+    private void signIn(String email, String password) {
+        mAuth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // Autenticación en Firebase correcta -> pide libros al servidor
+                            Log.d(TAG, "signIn:usuario autenticado correctamente");
+                            getFirebaseBookList();
+                        } else {
+                            // La autenticación falla -> muestra un mensaje al usuario.
+                            Log.w(TAG, "signIn:error de autenticación", task.getException());
+                            Toast.makeText(BookListActivity.this, "Error de autenticación en Firebase.",
+                                    Toast.LENGTH_SHORT).show();
+                            // Carga los libros de la base de datos local en el Adapter
+                            setupRecyclerView((RecyclerView) recyclerView);
+                        }
+                    }
+                });
     }
 
     /**
@@ -129,30 +149,32 @@ public class BookListActivity extends AppCompatActivity {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 // Recibe modificaciones de la lista de libros de Firebase
                 // y actualiza la base de datos local.
-                Log.d(TAG, "ValueEventListener:onDataChange invocado");
+                Log.d(TAG, "onDataChange:recibidos libros de Firebase");
                 updateLocalDatabase(dataSnapshot);
             }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 // Error en el acceso a la base de datos Firebase.
-                Log.w(TAG, "ValueEventListener:onCancelled invocado", databaseError.toException());
+                Log.w(TAG, "onCancelled:error en acceso a BBDD Firebase", databaseError.toException());
+                // Carga libros de la base de datos local en el Adapter
+                setupRecyclerView((RecyclerView) recyclerView);
             }
         });
     }
 
     /**
      * Actualiza la base de datos local con la lista recibida de Firebase.
-     * Solo añade a la base de datos aquellos libros que no existían
-     * previamente.
+     * Solo añade a la base de datos aquellos libros que no estaban
+     * previamente almacenados.
      *
      * @param dataSnapshot la lista de libros de Firebase
      */
     private void updateLocalDatabase(DataSnapshot dataSnapshot) {
         GenericTypeIndicator<List<BookContent.BookItem>> gtiBookList =
                 new GenericTypeIndicator<List<BookContent.BookItem>>() {};
-        //BookContent.BookItem.deleteAll(BookContent.BookItem.class);
-        Log.d(TAG, "Libros atualmente en la base de datos SugarORM:");
+        Log.d(TAG, "Libros atualmente en la base de datos SugarORM: "
+                + BookContent.BookItem.count(BookContent.BookItem.class));
         for (BookContent.BookItem book: BookContent.getBooks()) {
             Log.d(TAG, "SugarID = " + book.getId()
                     + "; identificador = " + book.getIdentificador()
@@ -161,26 +183,28 @@ public class BookListActivity extends AppCompatActivity {
                     + "; fecha de publicación = " + book.getPublicationDate()
                     + "; urlImagen = " + book.getUrlImage());
         }
-        /*Log.d(TAG, "updateLocalDatabase:número de hijos en nodo " + dataSnapshot.getKey() + " = " + dataSnapshot.getChildrenCount());
-        Log.d(TAG, "updateLocalDatabase:número de hijos en nodo " + dataSnapshot.getKey() + "/" + dataSnapshot.child("5").getKey() + " = " + dataSnapshot.child("5").getChildrenCount());
-        Log.d(TAG, "updateLocalDatabase:nodo " + dataSnapshot.getKey() + "/" + dataSnapshot.child("5").getKey() + "/" + dataSnapshot.child("5").child("url_image").getKey() + " = " + dataSnapshot.child("5").child("url_image").getValue());
-        BookContent.BookItem book = dataSnapshot.child("5").getValue(BookContent.BookItem.class);*/
         for (BookContent.BookItem fbBook: dataSnapshot.getValue(gtiBookList)) {
             if (!BookContent.exists(fbBook)) {
-                // Añade el nuevo libro a la base de datos local
+                // Añade nuevo libro a la base de datos local
                 fbBook.save();
-                // Asigna el id del nuevo registro al campo 'identificador'
+                // Asigna el id del nuevo registro al campo 'identificador' del libro
                 fbBook.setIdentificador(fbBook.getId().intValue());
                 fbBook.update();
-                Log.d(TAG, "updateLocalDatabase:añadido a BD SugarId = " + fbBook.getId() +
-                        "; identificador = " + fbBook.getIdentificador() +
-                        "; title = " + fbBook.getTitle());
             }
         }
+        // Carga libros de la base de datos local actualizada en el Adapter
+        setupRecyclerView((RecyclerView) recyclerView);
     }
 
+    /**
+     * Carga los libros almacenados en la base de datos local, en el Adapter
+     * del ReciclerView.
+     *
+     * @param recyclerView  el layout que contiene la lista de libros
+     */
     private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
-        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(this, BookContent.ITEMS, mTwoPane));
+        Log.d(TAG, "setupRecyclerView:cargando datos en adapter (" + BookContent.getBooks().size() + " libros)");
+        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(this, BookContent.getBooks(), mTwoPane));
     }
 
     public static class SimpleItemRecyclerViewAdapter
@@ -217,6 +241,19 @@ public class BookListActivity extends AppCompatActivity {
             mValues = items;
             mParentActivity = parent;
             mTwoPane = twoPane;
+        }
+
+        /**
+         * Actualiza la lista de libros del Adapter con los libros de la base
+         * de datos local.
+         *
+         * @param items la lista de libros almacenados en la base de datos
+         */
+        public void setItems(List<BookContent.BookItem> items) {
+            // ============ INICIO CODIGO A COMPLETAR ===============
+            mValues.clear();
+            mValues.addAll(items);
+            // ============ FIN CODIGO A COMPLETAR ===============
         }
 
         @Override

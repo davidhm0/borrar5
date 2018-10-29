@@ -3,6 +3,7 @@ package com.davidhm.pqtm.borrar5.model;
 import android.util.Log;
 
 import com.orm.SugarRecord;
+import com.orm.dsl.Unique;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -22,8 +23,8 @@ import java.util.Map;
  */
 public class BookContent {
 
-    // Etiqueta para logs
-    private static final String TAG = "miLog";
+    // Etiqueta para Logs
+    private static final String TAG = "MyBooks";
 
     /**
      * An array of sample (dummy) items.
@@ -78,10 +79,8 @@ public class BookContent {
         // ============ INICIO CODIGO A COMPLETAR ===============
         if (bookItem == null) return false;
         if (BookItem.find(BookItem.class, "title = ?", bookItem.getTitle()).isEmpty()) {
-            Log.d(TAG, "exists: devuelve false (libro \"" + bookItem.getTitle() + "\")");
             return false;
         } else {
-            Log.d(TAG, "exists: devuelve true (libro \"" + bookItem.getTitle() + "\")");
             return true;
         }
         // ============ FIN CODIGO A COMPLETAR ===============
@@ -93,6 +92,7 @@ public class BookContent {
      */
     public static class BookItem extends SugarRecord {
 
+        @Unique
         private int identificador;
         private String title;
         private String author;
@@ -154,7 +154,6 @@ public class BookContent {
         public void setPublicationDate(String publicationDate) {
             try {
                 this.publicationDate = new SimpleDateFormat("dd/MM/yyyy").parse(publicationDate);
-                Log.d(TAG, "setPublicationDate:fecha de publicación establecida");
             }
             catch (ParseException ex)
             {
