@@ -2,8 +2,11 @@ package com.davidhm.pqtm.borrar5;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
@@ -28,6 +31,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.GenericTypeIndicator;
 import com.google.firebase.database.ValueEventListener;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -46,8 +50,11 @@ public class BookListActivity extends AppCompatActivity {
      */
     private boolean mTwoPane;
 
-    // Contenedor de la lista de libros
-    private View recyclerView;
+    // Adapter del RecyclerView
+    private SimpleItemRecyclerViewAdapter adapter;
+
+    // Layout para el refresco del listado de libros
+    private SwipeRefreshLayout swipeContainer;
 
     // Instancias de autenticación y base de datos de Firebase
     private FirebaseAuth mAuth;
@@ -91,20 +98,63 @@ public class BookListActivity extends AppCompatActivity {
             mTwoPane = true;
         }
 
-        recyclerView = findViewById(R.id.item_list);
+        View recyclerView = findViewById(R.id.item_list);
         assert recyclerView != null;
+        // Establece el Adapter para cargar los elementos de la lista de libros
+        adapter = new SimpleItemRecyclerViewAdapter(new ArrayList<BookContent.BookItem>());
+        ((RecyclerView)recyclerView).setAdapter(adapter);
 
-        // Comprueba si el usuario ya está autenticado en Firebase
+        swipeContainer = (SwipeRefreshLayout) findViewById(R.id.swipeContainer);
+        // Establece el Listener para el refresco del listado de libros
+        swipeContainer.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                // ============ INICIO CODIGO A COMPLETAR ===============
+                adapter.setItems(BookContent.getBooks());
+                swipeContainer.setRefreshing(false);
+                showMessage("LISTADO ACTUALIZADO");
+                // ============ FIN CODIGO A COMPLETAR ===============
+            }
+        });
+
+        // Comprueba si hay acceso a la Red
         //mAuth.signOut();
         //BookContent.BookItem.deleteAll(BookContent.BookItem.class);
-        if (mAuth.getCurrentUser() == null ) {
-            // No hay mingún usuario autenticado -> intenta hacer login
-            signIn(mEmail, mPassword);
+        if (!isNetworkConnected()) {
+            // No hay acceso -> muestra un mensaje al usuario
+            Log.d(TAG, "onCreate:no hay acceso a la red");
+            showMessage("NO HAY ACCESO A LA RED");
         } else {
-            // El usuario ya está autenticado -> pide libros al servidor
-            Log.d(TAG, "onCreate:usuario autenticado previamente");
-            getFirebaseBookList();
+            // Comprueba si el usuario ya está autenticado en Firebase
+            if (mAuth.getCurrentUser() == null) {
+                // No hay mingún usuario autenticado -> intenta hacer login
+                signIn(mEmail, mPassword);
+            } else {
+                // El usuario ya está autenticado -> pide libros al servidor
+                Log.d(TAG, "onCreate:usuario autenticado previamente");
+                getFirebaseBookList();
+            }
         }
+    }
+
+    /**
+     * Muestra un mensaje en pantalla.
+     *
+     * @param msg   el mensaje a mostrar
+     */
+    public void showMessage(String msg) {
+        Toast.makeText(BookListActivity.this, msg, Toast.LENGTH_LONG).show();
+    }
+
+    /**
+     * Comprueba si hay acceso a la red.
+     *
+     * @return  true si hay acceso a la red; false en otro caso
+     */
+    private boolean isNetworkConnected() {
+        ConnectivityManager cm = (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo netInfo = cm.getActiveNetworkInfo();
+        return (netInfo != null && netInfo.isConnected() && netInfo.isAvailable());
     }
 
     /**
@@ -128,10 +178,9 @@ public class BookListActivity extends AppCompatActivity {
                         } else {
                             // La autenticación falla -> muestra un mensaje al usuario.
                             Log.w(TAG, "signIn:error de autenticación", task.getException());
-                            Toast.makeText(BookListActivity.this, "Error de autenticación en Firebase.",
-                                    Toast.LENGTH_SHORT).show();
+                            showMessage("ERROR DE AUTENTICACIÓN EN FIREBASE");
                             // Carga los libros de la base de datos local en el Adapter
-                            setupRecyclerView((RecyclerView) recyclerView);
+                            adapter.setItems(BookContent.getBooks());
                         }
                     }
                 });
@@ -157,8 +206,8 @@ public class BookListActivity extends AppCompatActivity {
             public void onCancelled(DatabaseError databaseError) {
                 // Error en el acceso a la base de datos Firebase.
                 Log.w(TAG, "onCancelled:error en acceso a BBDD Firebase", databaseError.toException());
-                // Carga libros de la base de datos local en el Adapter
-                setupRecyclerView((RecyclerView) recyclerView);
+                // Carga la lista de libros de la base de datos local en el Adapter
+                adapter.setItems(BookContent.getBooks());
             }
         });
     }
@@ -192,19 +241,8 @@ public class BookListActivity extends AppCompatActivity {
                 fbBook.update();
             }
         }
-        // Carga libros de la base de datos local actualizada en el Adapter
-        setupRecyclerView((RecyclerView) recyclerView);
-    }
-
-    /**
-     * Carga los libros almacenados en la base de datos local, en el Adapter
-     * del ReciclerView.
-     *
-     * @param recyclerView  el layout que contiene la lista de libros
-     */
-    private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
-        Log.d(TAG, "setupRecyclerView:cargando datos en adapter (" + BookContent.getBooks().size() + " libros)");
-        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(BookContent.getBooks()));
+        // Carga los libros de la base de datos local, actualizada, en el Adapter
+        adapter.setItems(BookContent.getBooks());
     }
 
     public static class SimpleItemRecyclerViewAdapter
@@ -242,15 +280,17 @@ public class BookListActivity extends AppCompatActivity {
         }
 
         /**
-         * Actualiza la lista de libros del Adapter con los libros de la base
-         * de datos local.
+         * Actualiza la lista de libros del Adapter con la nueva lista pasada
+         * como parámetro.
          *
-         * @param items la lista de libros almacenados en la base de datos
+         * @param items la lista de libros actualizada
          */
         public void setItems(List<BookContent.BookItem> items) {
             // ============ INICIO CODIGO A COMPLETAR ===============
             mValues.clear();
             mValues.addAll(items);
+            // Notifica al Adapter que los datos han cambiado
+            notifyDataSetChanged();
             // ============ FIN CODIGO A COMPLETAR ===============
         }
 

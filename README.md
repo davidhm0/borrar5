@@ -1,3 +1,3 @@
 # borrar5
 
-Ejercicio 4 en desarrollo
+Ejercicio 4 terminado
