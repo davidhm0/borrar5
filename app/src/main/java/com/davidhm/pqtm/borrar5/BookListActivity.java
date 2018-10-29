@@ -204,16 +204,16 @@ public class BookListActivity extends AppCompatActivity {
      */
     private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
         Log.d(TAG, "setupRecyclerView:cargando datos en adapter (" + BookContent.getBooks().size() + " libros)");
-        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(this, BookContent.getBooks(), mTwoPane));
+        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(BookContent.getBooks()));
     }
 
     public static class SimpleItemRecyclerViewAdapter
             extends RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder> {
 
-        private final BookListActivity mParentActivity;
+        //private final BookListActivity mParentActivity;
         private final List<BookContent.BookItem> mValues;
-        private final boolean mTwoPane;
-        private final View.OnClickListener mOnClickListener = new View.OnClickListener() {
+        //private final boolean mTwoPane;
+        /*private final View.OnClickListener mOnClickListener = new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 BookContent.BookItem item = (BookContent.BookItem) view.getTag();
@@ -233,14 +233,12 @@ public class BookListActivity extends AppCompatActivity {
                     context.startActivity(intent);
                 }
             }
-        };
+        };*/
 
-        SimpleItemRecyclerViewAdapter(BookListActivity parent,
-                                      List<BookContent.BookItem> items,
-                                      boolean twoPane) {
+        SimpleItemRecyclerViewAdapter(List<BookContent.BookItem> items) {
             mValues = items;
-            mParentActivity = parent;
-            mTwoPane = twoPane;
+            //mParentActivity = parent;
+            //mTwoPane = twoPane;
         }
 
         /**
@@ -269,7 +267,7 @@ public class BookListActivity extends AppCompatActivity {
             holder.mContentView.setText(mValues.get(position).getTitle());
 
             holder.itemView.setTag(mValues.get(position));
-            holder.itemView.setOnClickListener(mOnClickListener);
+            //holder.itemView.setOnClickListener(mOnClickListener);
         }
 
         @Override
