@@ -1,6 +1,8 @@
 package com.davidhm.pqtm.borrar5;
 
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -48,7 +50,7 @@ public class BookListActivity extends AppCompatActivity {
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
      * device.
      */
-    private boolean mTwoPane;
+    //private boolean mTwoPane;
 
     // Adapter del RecyclerView
     private SimpleItemRecyclerViewAdapter adapter;
@@ -90,18 +92,19 @@ public class BookListActivity extends AppCompatActivity {
             }
         });
 
-        if (findViewById(R.id.item_detail_container) != null) {
+        /*if (findViewById(R.id.item_detail_container) != null) {
             // The detail container view will be present only in the
             // large-screen layouts (res/values-w900dp).
             // If this view is present, then the
             // activity should be in two-pane mode.
             mTwoPane = true;
-        }
+        }*/
 
         View recyclerView = findViewById(R.id.item_list);
         assert recyclerView != null;
         // Establece el Adapter para cargar los elementos de la lista de libros
         adapter = new SimpleItemRecyclerViewAdapter(new ArrayList<BookContent.BookItem>());
+        //adapter = new SimpleItemRecyclerViewAdapter(this, new ArrayList<BookContent.BookItem>(), mTwoPane);
         ((RecyclerView)recyclerView).setAdapter(adapter);
 
         swipeContainer = (SwipeRefreshLayout) findViewById(R.id.swipeContainer);
@@ -112,7 +115,7 @@ public class BookListActivity extends AppCompatActivity {
                 // ============ INICIO CODIGO A COMPLETAR ===============
                 adapter.setItems(BookContent.getBooks());
                 swipeContainer.setRefreshing(false);
-                showMessage("LISTADO ACTUALIZADO");
+                Toast.makeText(BookListActivity.this, "LISTADO ACTUALIZADO", Toast.LENGTH_LONG).show();
                 // ============ FIN CODIGO A COMPLETAR ===============
             }
         });
@@ -124,6 +127,8 @@ public class BookListActivity extends AppCompatActivity {
             // No hay acceso -> muestra un mensaje al usuario
             Log.d(TAG, "onCreate:no hay acceso a la red");
             showMessage("NO HAY ACCESO A LA RED");
+            // Carga la lista actual de la base de datos local, en el Adapter
+            adapter.setItems(BookContent.getBooks());
         } else {
             // Comprueba si el usuario ya está autenticado en Firebase
             if (mAuth.getCurrentUser() == null) {
@@ -138,12 +143,17 @@ public class BookListActivity extends AppCompatActivity {
     }
 
     /**
-     * Muestra un mensaje en pantalla.
+     * Muestra en la pantalla un cuadro de diálogo con un mensaje.
      *
      * @param msg   el mensaje a mostrar
      */
     public void showMessage(String msg) {
-        Toast.makeText(BookListActivity.this, msg, Toast.LENGTH_LONG).show();
+        AlertDialog.Builder builder = new AlertDialog.Builder(BookListActivity.this);
+        builder.setMessage(msg).setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) { }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
     /**
@@ -178,8 +188,9 @@ public class BookListActivity extends AppCompatActivity {
                         } else {
                             // La autenticación falla -> muestra un mensaje al usuario.
                             Log.w(TAG, "signIn:error de autenticación", task.getException());
-                            showMessage("ERROR DE AUTENTICACIÓN EN FIREBASE");
-                            // Carga los libros de la base de datos local en el Adapter
+                            Toast.makeText(BookListActivity.this,
+                                    "ERROR DE AUTENTICACIÓN EN FIREBASE", Toast.LENGTH_LONG).show();
+                            // Carga la lista actual de la base de datos local, en el Adapter
                             adapter.setItems(BookContent.getBooks());
                         }
                     }
@@ -198,15 +209,15 @@ public class BookListActivity extends AppCompatActivity {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 // Recibe modificaciones de la lista de libros de Firebase
                 // y actualiza la base de datos local.
-                Log.d(TAG, "onDataChange:recibidos libros de Firebase");
+                Log.d(TAG, "onDataChange:recibida lista de libros de Firebase");
                 updateLocalDatabase(dataSnapshot);
             }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 // Error en el acceso a la base de datos Firebase.
-                Log.w(TAG, "onCancelled:error en acceso a BBDD Firebase", databaseError.toException());
-                // Carga la lista de libros de la base de datos local en el Adapter
+                Log.w(TAG, "onCancelled:error en acceso a base de datos de Firebase", databaseError.toException());
+                // Carga la lista actual de la base de datos local, en el Adapter
                 adapter.setItems(BookContent.getBooks());
             }
         });
@@ -234,18 +245,18 @@ public class BookListActivity extends AppCompatActivity {
         }
         for (BookContent.BookItem fbBook: dataSnapshot.getValue(gtiBookList)) {
             if (!BookContent.exists(fbBook)) {
-                // Añade nuevo libro a la base de datos local
+                // Añade un nuevo libro a la base de datos local
                 fbBook.save();
                 // Asigna el id del nuevo registro al campo 'identificador' del libro
                 fbBook.setIdentificador(fbBook.getId().intValue());
                 fbBook.update();
             }
         }
-        // Carga los libros de la base de datos local, actualizada, en el Adapter
+        // Carga la lista de libros, una vez actualizada, en el Adapter
         adapter.setItems(BookContent.getBooks());
     }
 
-    public static class SimpleItemRecyclerViewAdapter
+    public class SimpleItemRecyclerViewAdapter
             extends RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder> {
 
         //private final BookListActivity mParentActivity;
@@ -273,6 +284,9 @@ public class BookListActivity extends AppCompatActivity {
             }
         };*/
 
+        /*SimpleItemRecyclerViewAdapter(BookListActivity parent,
+                                      List<BookContent.BookItem> items,
+                                      boolean twoPane) {*/
         SimpleItemRecyclerViewAdapter(List<BookContent.BookItem> items) {
             mValues = items;
             //mParentActivity = parent;
@@ -291,6 +305,10 @@ public class BookListActivity extends AppCompatActivity {
             mValues.addAll(items);
             // Notifica al Adapter que los datos han cambiado
             notifyDataSetChanged();
+            // Muestra un mensaje si la lista está vacía
+            Log.d(TAG, "setItems:tamaño de la lista = " + mValues.size());
+            if (mValues.isEmpty())
+                showMessage("EL CATÁLOGO DE LIBROS ESTÁ VACÍO");
             // ============ FIN CODIGO A COMPLETAR ===============
         }
 
@@ -302,11 +320,39 @@ public class BookListActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onBindViewHolder(final ViewHolder holder, int position) {
+        public void onBindViewHolder(final ViewHolder holder, final int position) {
             holder.mIdView.setText(String.valueOf(mValues.get(position).getIdentificador()));
             holder.mContentView.setText(mValues.get(position).getTitle());
 
             holder.itemView.setTag(mValues.get(position));
+
+            // ============ INICIO CODIGO A COMPLETAR ===============
+            holder.itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    BookContent.BookItem item = (BookContent.BookItem) v.getTag();
+                    if (findViewById(R.id.item_detail_container) != null) {
+                        Bundle arguments = new Bundle();
+                        // Identifica el libro por su Id en la base de datos
+                        arguments.putString(BookDetailFragment.ARG_ITEM_ID, String.valueOf(item.getId()));
+                        BookDetailFragment fragment = new BookDetailFragment();
+                        fragment.setArguments(arguments);
+                        BookListActivity.this.getSupportFragmentManager().beginTransaction()
+                                .replace(R.id.item_detail_container, fragment)
+                                .commit();
+                    } else {
+                        Context context = v.getContext();
+                        Intent intent = new Intent(context, BookDetailActivity.class);
+                        // Identifica el libro por su Id en la base de datos
+                        intent.putExtra(BookDetailFragment.ARG_ITEM_ID, String.valueOf(item.getId()));
+
+                        context.startActivity(intent);
+                    }
+
+                }
+            });
+            // ============ FIN CODIGO A COMPLETAR ===============
+
             //holder.itemView.setOnClickListener(mOnClickListener);
         }
 
